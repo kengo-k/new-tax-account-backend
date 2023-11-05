@@ -66,6 +66,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "new-tax-account-backend"
+version = "0.1.0"
+dependencies = [
+ "diesel",
+ "dotenvy",
+]
+
+[[package]]
 name = "pkg-config"
 version = "0.3.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -93,14 +101,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5267fca4496028628a95160fc423a33e8b2e6af8a5302579e322e4b520293cae"
 dependencies = [
  "proc-macro2",
-]
-
-[[package]]
-name = "rust-simple-template"
-version = "0.1.0"
-dependencies = [
- "diesel",
- "dotenvy",
 ]
 
 [[package]]

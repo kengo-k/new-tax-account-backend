@@ -1,40 +1,22 @@
-mod foo;
-
-mod inner_mod {
-    pub fn hello() {
-        println!("Hello");
-    }
-
-    pub mod inner_inner_mod {
-        pub fn world() {
-            println!("World");
-        }
-    }
-
-    #[derive(Debug)]
-    pub struct Person {
-        pub name: String,
-    }
-
-    impl Person {
-        pub fn new(name: String) -> Self {
-            Self { name }
-        }
-
-        pub fn show(&self) {
-            println!("{:?}", self);
-        }
-    }
-}
-
-use crate::foo::common::MyEnum;
-use inner_mod::inner_inner_mod::world;
-use inner_mod::Person;
+use self::models::*;
+use diesel::prelude::*;
+use new_tax_account_backend::*;
 
 fn main() {
-    inner_mod::hello();
-    world();
-    let john = Person::new("John".to_string());
-    john.show();
-    foo::bar::util::print_my_enum(&MyEnum::A);
+    use self::schema::posts::dsl::*;
+
+    let connection = &mut establish_connection();
+    let results = posts
+        .filter(published.eq(true))
+        .limit(5)
+        .select(Post::as_select())
+        .load(connection)
+        .expect("Error loading posts");
+
+    println!("Displaying {} posts", results.len());
+    for post in results {
+        println!("{}", post.title);
+        println!("-----------\n");
+        println!("{}", post.body);
+    }
 }

@@ -1,25 +1,15 @@
-pub fn hello() {
-    println!("Hello, from lib.rs!");
-}
+pub mod models;
+pub mod schema;
 
-/// Adds two integers together.
-///
-/// # Examples
-///
-/// ```
-/// let result = rust_simple_template::plus(5, 10);
-/// assert_eq!(result, 15);
-/// ```
-pub fn plus(a: i32, b: i32) -> i32 {
-    a + b
-}
+use diesel::prelude::*;
+use diesel::sqlite::SqliteConnection;
+use dotenvy::dotenv;
+use std::env;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub fn establish_connection() -> SqliteConnection {
+    dotenv().ok();
 
-    #[test]
-    fn test_plus() {
-        assert_eq!(plus(5, 10), 15);
-    }
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    SqliteConnection::establish(&database_url)
+        .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }

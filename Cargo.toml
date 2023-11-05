@@ -11,4 +11,4 @@ path = "src/main2.rs"
 
 [dependencies]
 diesel = { version = "2.1.3", features = ["sqlite"] }
-dotenv = "0.15.0"
+dotenvy = "0.15.7"

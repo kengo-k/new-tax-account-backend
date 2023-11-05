@@ -1,9 +1,9 @@
 # setup dependencies
 
-## install dotenv
+## install dotenvy
 
 ```
-$ cargo add dotenv
+$ cargo add dotenvy
 ```
 
 ## install Diesel

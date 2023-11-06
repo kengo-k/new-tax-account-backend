@@ -1,11 +1,17 @@
 use self::models::*;
-use diesel::prelude::*;
+use diesel::{insert_into, prelude::*};
 use new_tax_account_backend::*;
 
 fn main() {
     use self::schema::posts::dsl::*;
 
     let connection = &mut establish_connection();
+
+    insert_into(posts)
+        .values((title.eq("test title"), body.eq("tes"), published.eq(true)))
+        .execute(connection)
+        .unwrap();
+
     let results = posts
         .filter(published.eq(true))
         .limit(5)
@@ -15,8 +21,9 @@ fn main() {
 
     println!("Displaying {} posts", results.len());
     for post in results {
-        println!("{}", post.title);
-        println!("-----------\n");
-        println!("{}", post.body);
+        println!(
+            "id:{:?}, title:{}, body: {}, published: {}",
+            post.id, post.title, post.body, post.published
+        );
     }
 }

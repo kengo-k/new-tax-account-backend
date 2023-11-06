@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use self::models::*;
 use diesel::{insert_into, prelude::*};
 use new_tax_account_backend::*;
@@ -5,6 +7,12 @@ use new_tax_account_backend::*;
 #[test]
 fn test_crud() {
     use self::schema::posts::dsl::*;
+
+    Command::new("diesel")
+        .arg("database")
+        .arg("reset")
+        .output()
+        .expect("failed to execute process");
 
     let connection = &mut establish_connection();
 

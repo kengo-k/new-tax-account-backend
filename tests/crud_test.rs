@@ -16,22 +16,43 @@ fn test_crud() {
 
     let connection = &mut establish_connection();
 
-    insert_into(posts)
-        .values((title.eq("test title"), body.eq("tes"), published.eq(true)))
-        .execute(connection)
-        .unwrap();
-
     let results = posts
-        .filter(published.eq(true))
         .select(Post::as_select())
         .load(connection)
         .expect("Error loading posts");
 
-    println!("Displaying {} posts", results.len());
-    for post in results {
-        println!(
-            "id:{:?}, title:{}, body: {}, published: {}",
-            post.id, post.title, post.body, post.published
-        );
-    }
+    assert!(results.is_empty());
+
+    insert_into(posts)
+        .values((
+            title.eq("test title1"),
+            body.eq("test body1"),
+            published.eq(true),
+        ))
+        .execute(connection)
+        .unwrap();
+
+    insert_into(posts)
+        .values((
+            title.eq("test title2"),
+            body.eq("test body2"),
+            published.eq(false),
+        ))
+        .execute(connection)
+        .unwrap();
+
+    let results = posts
+        .select(Post::as_select())
+        .load(connection)
+        .expect("Error loading posts");
+
+    assert!(results.len() == 2);
+
+    let results = posts
+        .filter(published.eq(false))
+        .select(Post::as_select())
+        .load(connection)
+        .expect("Error loading posts");
+
+    assert!(results.len() == 1);
 }

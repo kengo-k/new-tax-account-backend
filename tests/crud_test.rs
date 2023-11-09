@@ -13,7 +13,7 @@ fn setup() {
 }
 
 #[test]
-fn test_crud() {
+fn test_basic_crud() {
     use self::schema::posts::dsl::*;
 
     setup();
@@ -61,10 +61,38 @@ fn test_crud() {
         .expect("Error loading posts");
     assert!(results.len() == 1);
 
+    // Test that the retrieved record values are correct.
     let head = results.get(0);
     assert!(head.is_some());
     let head = head.unwrap();
     assert!(head.title == "test title2");
     assert!(head.body == "test body2");
     assert!(head.published == false);
+
+    // Select only the specified columns by tuple.
+    let results = posts
+        .filter(published.eq(true))
+        .select((title, body))
+        .load::<(String, String)>(connection)
+        .expect("Error loading posts");
+    assert!(results.len() == 1);
+    let head = results.get(0).unwrap();
+    assert!(head.0 == "test title1");
+    assert!(head.1 == "test body1");
+
+    // Select only the specified columns by struct.
+    #[derive(Queryable, Debug)]
+    struct PostTitleBody {
+        title: String,
+        body: String,
+    }
+    let results = posts
+        .filter(published.eq(true))
+        .select((title, body))
+        .load::<PostTitleBody>(connection)
+        .expect("Error loading posts");
+    assert!(results.len() == 1);
+    let head = results.get(0).unwrap();
+    assert!(head.title == "test title1");
+    assert!(head.body == "test body1");
 }

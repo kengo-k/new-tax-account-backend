@@ -2,9 +2,17 @@ use std::process::Command;
 
 use self::models::*;
 use diesel::{insert_into, prelude::*};
+//use dotenvy;
 use new_tax_account_backend::*;
 
 fn init() {
+    // dotenvy::from_filename(".env.test").expect("failed to read .env file");
+
+    // Command::new("diesel")
+    //     .arg("setup")
+    //     .output()
+    //     .expect("failed to execute process");
+
     Command::new("diesel")
         .arg("database")
         .arg("reset")
@@ -43,7 +51,7 @@ fn test_insert() {
 }
 
 #[test]
-fn test_select() {
+fn test_select_simple() {
     use self::schema::posts::dsl::*;
 
     init();
@@ -61,6 +69,52 @@ fn test_select() {
     let head = head.unwrap();
     assert!(head.title == "title1");
     assert!(head.body == "body1");
+    assert!(head.published);
+}
+
+#[test]
+fn test_select_filter_by_name() {
+    use self::schema::posts::dsl::*;
+
+    init();
+    let mut connection = get_connection();
+    let _ = insert_post(&mut connection, "title1", "body1", true);
+    let _ = insert_post(&mut connection, "title2", "body2", false);
+
+    let results = posts
+        .filter(title.eq("title2"))
+        .select(Post::as_select())
+        .load(&mut connection)
+        .expect("Error loading posts");
+    assert!(results.len() == 1);
+    let head = results.get(0);
+    assert!(head.is_some());
+    let head = head.unwrap();
+    assert!(head.title == "title2");
+    assert!(head.body == "body2");
+    assert!(!head.published);
+}
+
+#[test]
+fn test_select_filter_by_names() {
+    use self::schema::posts::dsl::*;
+
+    init();
+    let mut connection = get_connection();
+    let _ = insert_post(&mut connection, "title1", "body1", true);
+    let _ = insert_post(&mut connection, "title2", "body2", true);
+
+    let results = posts
+        .filter(title.eq("title2").and(published.eq(true)))
+        .select(Post::as_select())
+        .load(&mut connection)
+        .expect("Error loading posts");
+    assert!(results.len() == 1);
+    let head = results.get(0);
+    assert!(head.is_some());
+    let head = head.unwrap();
+    assert!(head.title == "title2");
+    assert!(head.body == "body2");
     assert!(head.published);
 }
 

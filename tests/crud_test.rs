@@ -34,9 +34,30 @@ fn insert_post(
 }
 
 #[test]
-fn test_insert() {
+fn test_insert_simple() {
     let mut connection = get_connection();
     let result = insert_post(&mut connection, "title1", "body1", true);
+    assert!(result.is_ok());
+    assert!(result.unwrap() == 1);
+}
+
+#[test]
+fn test_insert_by_struct() {
+    use self::schema::posts::dsl as posts;
+
+    let new_record = Post {
+        id: None,
+        title: "title1".to_string(),
+        body: "body1".to_string(),
+        category_id: None,
+        ..Default::default()
+    };
+
+    let mut connection = get_connection();
+    let result = insert_into(posts::posts)
+        .values(&new_record)
+        .execute(&mut connection);
+
     assert!(result.is_ok());
     assert!(result.unwrap() == 1);
 }
@@ -135,6 +156,24 @@ fn test_select_by_filter() {
 
 #[test]
 fn test_select_by_multiple_filters() {
+    use self::schema::posts::dsl as posts;
+
+    let mut connection = get_connection();
+    let _ = insert_post(&mut connection, "title1", "body1", true);
+    let _ = insert_post(&mut connection, "title2", "body2", false);
+
+    let results = posts::posts
+        .filter(posts::title.eq("title2"))
+        .filter(posts::body.eq("body1"))
+        .select(Post::as_select())
+        .load(&mut connection)
+        .expect("Error loading posts");
+
+    assert!(results.len() == 0);
+}
+
+#[test]
+fn test_select_by_complex_filters() {
     use self::schema::posts::dsl as posts;
 
     let mut connection = get_connection();

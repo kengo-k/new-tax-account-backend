@@ -177,15 +177,48 @@ fn test_select_by_complex_filters() {
     use self::schema::posts::dsl as posts;
 
     let mut connection = get_connection();
-    let _ = insert_post(&mut connection, "title1", "body1", true);
-    let _ = insert_post(&mut connection, "title2", "body2", false);
+
+    let mut ins = |title, body, category_id, author: Option<&str>, published, good_count| {
+        let new_record = Post {
+            title: String::from(title),
+            body: String::from(body),
+            category_id,
+            author: author.map(String::from),
+            published,
+            good_count,
+            ..Default::default()
+        };
+        insert_into(posts::posts)
+            .values(&new_record)
+            .execute(&mut connection)
+    };
+
+    let _ = ins("title1", "body1", None, None, true, 100);
+    let _ = ins("title2", "body2", Some(1), Some("John"), true, 20);
+    let _ = ins("title3", "body3", Some(1), None, true, 40);
+    let _ = ins("title4", "body4", None, None, true, 5);
+    let _ = ins("title5", "body5", Some(2), Some("John"), false, 0);
+    let _ = ins("title6", "body6", Some(2), Some("Bob"), false, 0);
+    let _ = ins("title7", "body7", Some(2), None, true, 10);
+    let _ = ins("title8", "body8", None, None, true, 15);
+    let _ = ins("title9", "body9", Some(3), Some("Alice"), true, 200);
 
     let results = posts::posts
-        .filter(posts::title.eq("title2"))
-        .filter(posts::body.eq("body1"))
+        .filter(posts::published.eq(true).and(posts::good_count.gt(50)))
+        .or_filter(posts::published.eq(false).and(posts::author.eq("Bob")))
         .select(Post::as_select())
+        .order_by(posts::good_count.desc())
         .load(&mut connection)
         .expect("Error loading posts");
 
-    assert!(results.len() == 0);
+    assert!(results.len() == 3);
+
+    let (first, second, third) = (
+        results.get(0).unwrap(),
+        results.get(1).unwrap(),
+        results.get(2).unwrap(),
+    );
+    assert!(first.title == "title9");
+    assert!(second.title == "title1");
+    assert!(third.title == "title6");
 }

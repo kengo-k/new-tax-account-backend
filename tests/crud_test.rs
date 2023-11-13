@@ -1,3 +1,4 @@
+use diesel::dsl::{count_star, sum};
 use dotenvy;
 
 use diesel::{insert_into, prelude::*};
@@ -16,7 +17,7 @@ fn get_connection() -> SqliteConnection {
     connection
 }
 
-fn insert_post(
+fn insert_post_simple(
     connection: &mut SqliteConnection,
     title: &str,
     body: &str,
@@ -33,10 +34,34 @@ fn insert_post(
     result
 }
 
+fn insert_post_full(
+    connection: &mut SqliteConnection,
+    title: &str,
+    body: &str,
+    category_id: Option<i32>,
+    author: Option<&str>,
+    published: bool,
+    good_count: i32,
+) -> QueryResult<usize> {
+    use self::schema::posts::dsl as posts;
+    let new_record = Post {
+        title: String::from(title),
+        body: String::from(body),
+        category_id,
+        author: author.map(String::from),
+        published,
+        good_count,
+        ..Default::default()
+    };
+    insert_into(posts::posts)
+        .values(&new_record)
+        .execute(connection)
+}
+
 #[test]
 fn test_insert_simple() {
     let mut connection = get_connection();
-    let result = insert_post(&mut connection, "title1", "body1", true);
+    let result = insert_post_simple(&mut connection, "title1", "body1", true);
     assert!(result.is_ok());
     assert!(result.unwrap() == 1);
 }
@@ -67,7 +92,7 @@ fn test_select_all_columns() {
     use self::schema::posts::dsl as posts;
 
     let mut connection = get_connection();
-    let _ = insert_post(&mut connection, "title1", "body1", true);
+    let _ = insert_post_simple(&mut connection, "title1", "body1", true);
     let results = posts::posts
         .select(Post::as_select())
         .load(&mut connection)
@@ -89,7 +114,7 @@ fn test_select_specified_columns() {
     use self::schema::posts::dsl as posts;
 
     let mut connection = get_connection();
-    let _ = insert_post(&mut connection, "title1", "body1", true);
+    let _ = insert_post_simple(&mut connection, "title1", "body1", true);
     let results = posts::posts
         .select((posts::title, posts::body))
         .load::<(String, String)>(&mut connection)
@@ -107,7 +132,7 @@ fn test_select_into_struct() {
     use self::schema::posts::dsl as posts;
 
     let mut connection = get_connection();
-    let _ = insert_post(&mut connection, "title1", "body1", true);
+    let _ = insert_post_simple(&mut connection, "title1", "body1", true);
 
     #[derive(Queryable, Debug)]
     struct PostTitleBody {
@@ -134,8 +159,8 @@ fn test_select_by_filter() {
     use self::schema::posts::dsl as posts;
 
     let mut connection = get_connection();
-    let _ = insert_post(&mut connection, "title1", "body1", true);
-    let _ = insert_post(&mut connection, "title2", "body2", false);
+    let _ = insert_post_simple(&mut connection, "title1", "body1", true);
+    let _ = insert_post_simple(&mut connection, "title2", "body2", false);
 
     let results = posts::posts
         .filter(posts::title.eq("title2"))
@@ -159,8 +184,8 @@ fn test_select_by_multiple_filters() {
     use self::schema::posts::dsl as posts;
 
     let mut connection = get_connection();
-    let _ = insert_post(&mut connection, "title1", "body1", true);
-    let _ = insert_post(&mut connection, "title2", "body2", false);
+    let _ = insert_post_simple(&mut connection, "title1", "body1", true);
+    let _ = insert_post_simple(&mut connection, "title2", "body2", false);
 
     let results = posts::posts
         .filter(posts::title.eq("title2"))
@@ -173,35 +198,20 @@ fn test_select_by_multiple_filters() {
 }
 
 #[test]
+#[rustfmt::skip]
 fn test_select_by_complex_filters() {
     use self::schema::posts::dsl as posts;
 
     let mut connection = get_connection();
-
-    let mut ins = |title, body, category_id, author: Option<&str>, published, good_count| {
-        let new_record = Post {
-            title: String::from(title),
-            body: String::from(body),
-            category_id,
-            author: author.map(String::from),
-            published,
-            good_count,
-            ..Default::default()
-        };
-        insert_into(posts::posts)
-            .values(&new_record)
-            .execute(&mut connection)
-    };
-
-    let _ = ins("title1", "body1", None, None, true, 100);
-    let _ = ins("title2", "body2", Some(1), Some("John"), true, 20);
-    let _ = ins("title3", "body3", Some(1), None, true, 40);
-    let _ = ins("title4", "body4", None, None, true, 5);
-    let _ = ins("title5", "body5", Some(2), Some("John"), false, 0);
-    let _ = ins("title6", "body6", Some(2), Some("Bob"), false, 0);
-    let _ = ins("title7", "body7", Some(2), None, true, 10);
-    let _ = ins("title8", "body8", None, None, true, 15);
-    let _ = ins("title9", "body9", Some(3), Some("Alice"), true, 200);
+    let _ = insert_post_full(&mut connection,"title1", "body1", None, None, true, 100);
+    let _ = insert_post_full(&mut connection,"title2", "body2", Some(1), Some("John"), true, 20);
+    let _ = insert_post_full(&mut connection,"title3", "body3", Some(1), None, true, 40);
+    let _ = insert_post_full(&mut connection,"title4", "body4", None, None, true, 5);
+    let _ = insert_post_full(&mut connection,"title5", "body5", Some(2), Some("John"), false, 0);
+    let _ = insert_post_full(&mut connection,"title6", "body6", Some(2), Some("Bob"), false, 0);
+    let _ = insert_post_full(&mut connection,"title7", "body7", Some(2), None, true, 10);
+    let _ = insert_post_full(&mut connection,"title8", "body8", None, None, true, 15);
+    let _ = insert_post_full(&mut connection,"title9", "body9", Some(3), Some("Alice"), true, 200);
 
     let results = posts::posts
         .filter(posts::published.eq(true).and(posts::good_count.gt(50)))
@@ -221,4 +231,42 @@ fn test_select_by_complex_filters() {
     assert!(first.title == "title9");
     assert!(second.title == "title1");
     assert!(third.title == "title6");
+}
+
+#[test]
+#[rustfmt::skip]
+fn test_select_grouping() {
+    use self::schema::posts::dsl as posts;
+
+    let mut connection = get_connection();
+    let _ = insert_post_full(&mut connection,"title1", "body1", None, None, true, 100);
+    let _ = insert_post_full(&mut connection,"title2", "body2", Some(1), Some("John"), true, 20);
+    let _ = insert_post_full(&mut connection,"title3", "body3", Some(1), None, true, 40);
+    let _ = insert_post_full(&mut connection,"title4", "body4", None, None, true, 5);
+    let _ = insert_post_full(&mut connection,"title5", "body5", Some(2), Some("John"), true, 50);
+    let _ = insert_post_full(&mut connection,"title6", "body6", Some(2), Some("John"), false, 0);
+    let _ = insert_post_full(&mut connection,"title7", "body7", Some(2), None, true, 10);
+    let _ = insert_post_full(&mut connection,"title8", "body8", None, None, true, 15);
+    let _ = insert_post_full(&mut connection,"title9", "body9", Some(3), Some("Alice"), true, 200);
+
+    let results = posts::posts
+        .filter(posts::published.eq(true).and(posts::author.is_not_null()))
+        .group_by(posts::author)
+        .select((posts::author, count_star(), sum(posts::good_count)))
+        .order_by(posts::good_count.desc())
+        .load::<(Option<String>, i64, Option<i64>)>(&mut connection)
+        .expect("Error loading posts");
+
+    assert!(results.len() == 2);
+
+    let (first, second) = (
+        results.get(0).unwrap(),
+        results.get(1).unwrap(),
+    );
+    assert!(first.0 == Some("Alice".to_string()));
+    assert!(first.1 == 1);
+    assert!(first.2 == Some(200));
+    assert!(second.0 == Some("John".to_string()));
+    assert!(second.1 == 2);
+    assert!(second.2 == Some(70));
 }

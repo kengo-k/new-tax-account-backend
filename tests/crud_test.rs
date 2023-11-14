@@ -270,3 +270,35 @@ fn test_select_grouping() {
     assert!(second.1 == 2);
     assert!(second.2 == Some(70));
 }
+
+#[test]
+fn test_update() {
+    use self::schema::posts::dsl as posts;
+
+    let mut connection = get_connection();
+    let _ = insert_post_simple(&mut connection, "title1", "body1", true);
+    let _ = insert_post_simple(&mut connection, "title2", "body2", false);
+
+    let result = diesel::update(posts::posts.filter(posts::title.eq("title1")))
+        .set(posts::body.eq("new body1"))
+        .execute(&mut connection);
+
+    assert!(result.is_ok());
+    assert!(result.unwrap() == 1);
+
+    let results = posts::posts
+        .filter(posts::title.eq("title1"))
+        .select(Post::as_select())
+        .load(&mut connection)
+        .expect("Error loading posts");
+
+    assert!(results.len() == 1);
+
+    let head = results.get(0);
+    assert!(head.is_some());
+
+    let head = head.unwrap();
+    assert!(head.title == "title1");
+    assert!(head.body == "new body1");
+    assert!(head.published);
+}

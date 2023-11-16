@@ -277,7 +277,7 @@ fn test_update() {
 
     let mut connection = get_connection();
     let _ = insert_post_simple(&mut connection, "title1", "body1", true);
-    let _ = insert_post_simple(&mut connection, "title2", "body2", false);
+    let _ = (&mut connection, "title2", "body2", false);
 
     let result = diesel::update(posts::posts.filter(posts::title.eq("title1")))
         .set(posts::body.eq("new body1"))
@@ -301,4 +301,84 @@ fn test_update() {
     assert!(head.title == "title1");
     assert!(head.body == "new body1");
     assert!(head.published);
+}
+
+#[test]
+fn test_update_by_struct() {
+    use self::schema::posts::dsl as posts;
+
+    let mut connection = get_connection();
+    let _ = insert_post_full(
+        &mut connection,
+        "title1",
+        "body1",
+        Some(1),
+        Some("john"),
+        true,
+        100,
+    );
+
+    #[derive(AsChangeset)]
+    #[diesel(table_name = crate::schema::posts)]
+    struct UpdatePostAttributes {
+        category_id: Option<i32>,
+        author: Option<String>,
+    }
+
+    let new_attributes = UpdatePostAttributes {
+        category_id: Some(2),
+        author: Some("bob".to_string()),
+    };
+
+    let result = diesel::update(posts::posts.filter(posts::title.eq("title1")))
+        .set(&new_attributes)
+        .execute(&mut connection);
+
+    assert!(result.is_ok());
+    assert!(result.unwrap() == 1);
+
+    let results = posts::posts
+        .filter(posts::title.eq("title1"))
+        .select(Post::as_select())
+        .load(&mut connection)
+        .expect("Error loading posts");
+
+    assert!(results.len() == 1);
+
+    let head = results.get(0);
+    assert!(head.is_some());
+
+    let head = head.unwrap();
+    assert_eq!(head.title, "title1");
+    assert_eq!(head.category_id, Some(2));
+    assert_eq!(head.author, Some("bob".to_string()));
+
+    let new_attributes = UpdatePostAttributes {
+        category_id: Some(3),
+        // Fields specified as 'None' are not included in the update target.
+        author: None,
+    };
+
+    let result = diesel::update(posts::posts.filter(posts::title.eq("title1")))
+        .set(&new_attributes)
+        .execute(&mut connection);
+
+    assert!(result.is_ok());
+    assert!(result.unwrap() == 1);
+
+    let results = posts::posts
+        .filter(posts::title.eq("title1"))
+        .select(Post::as_select())
+        .load(&mut connection)
+        .expect("Error loading posts");
+
+    assert!(results.len() == 1);
+
+    let head = results.get(0);
+    assert!(head.is_some());
+
+    let head = head.unwrap();
+    assert_eq!(head.title, "title1");
+    assert_eq!(head.category_id, Some(3));
+    assert_eq!(head.author, Some("bob".to_string()));
 }

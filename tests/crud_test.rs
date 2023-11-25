@@ -550,3 +550,32 @@ fn test_update_by_struct_flexibly() {
     assert_eq!(head.category_id, Some(2));
     assert_eq!(head.author, None);
 }
+
+#[test]
+#[rustfmt::skip]
+fn test_delete() {
+    use self::schema::posts::dsl as posts;
+
+    let mut connection = get_connection();
+    let _ = insert_post_full(&mut connection,"title1", "body1", None, None, true, 100);
+    let _ = insert_post_full(&mut connection,"title2", "body2", Some(1), Some("John"), true, 20);
+    let _ = insert_post_full(&mut connection,"title3", "body3", Some(1), None, true, 40);
+    let _ = insert_post_full(&mut connection,"title4", "body4", None, None, true, 5);
+    let _ = insert_post_full(&mut connection,"title5", "body5", Some(2), Some("John"), false, 0);
+    let _ = insert_post_full(&mut connection,"title6", "body6", Some(2), Some("Bob"), false, 0);
+    let _ = insert_post_full(&mut connection,"title7", "body7", Some(2), None, true, 10);
+    let _ = insert_post_full(&mut connection,"title8", "body8", None, None, true, 15);
+    let _ = insert_post_full(&mut connection,"title9", "body9", Some(3), Some("Alice"), true, 200);
+
+    diesel::delete(posts::posts.filter(posts::category_id.eq(2)))
+        .execute(&mut connection)
+        .expect("Error deleting posts");
+
+    let results = posts::posts
+        .select(Post::as_select())
+        .load(&mut connection)
+        .expect("Error loading posts");
+
+    assert!(results.len() == 6);
+
+}

@@ -382,3 +382,171 @@ fn test_update_by_struct() {
     assert_eq!(head.category_id, Some(3));
     assert_eq!(head.author, Some("bob".to_string()));
 }
+
+#[test]
+fn test_update_by_struct_none_as_null() {
+    use self::schema::posts::dsl as posts;
+
+    let mut connection = get_connection();
+    let _ = insert_post_full(
+        &mut connection,
+        "title1",
+        "body1",
+        Some(1),
+        Some("john"),
+        true,
+        100,
+    );
+
+    #[derive(AsChangeset)]
+    #[diesel(table_name = crate::schema::posts)]
+    #[changeset_options(treat_none_as_null = "true")]
+    struct UpdatePostAttributes {
+        category_id: Option<i32>,
+        author: Option<String>,
+    }
+
+    let new_attributes = UpdatePostAttributes {
+        category_id: Some(2),
+        author: Some("bob".to_string()),
+    };
+
+    let result = diesel::update(posts::posts.filter(posts::title.eq("title1")))
+        .set(&new_attributes)
+        .execute(&mut connection);
+
+    assert!(result.is_ok());
+    assert!(result.unwrap() == 1);
+
+    let results = posts::posts
+        .filter(posts::title.eq("title1"))
+        .select(Post::as_select())
+        .load(&mut connection)
+        .expect("Error loading posts");
+
+    assert!(results.len() == 1);
+
+    let head = results.get(0);
+    assert!(head.is_some());
+
+    let head = head.unwrap();
+    assert_eq!(head.title, "title1");
+    assert_eq!(head.category_id, Some(2));
+    assert_eq!(head.author, Some("bob".to_string()));
+
+    let new_attributes = UpdatePostAttributes {
+        category_id: Some(3),
+        // Fields specified as 'None' is treated as null.
+        author: None,
+    };
+
+    let result = diesel::update(posts::posts.filter(posts::title.eq("title1")))
+        .set(&new_attributes)
+        .execute(&mut connection);
+
+    assert!(result.is_ok());
+    assert!(result.unwrap() == 1);
+
+    let results = posts::posts
+        .filter(posts::title.eq("title1"))
+        .select(Post::as_select())
+        .load(&mut connection)
+        .expect("Error loading posts");
+
+    assert!(results.len() == 1);
+
+    let head = results.get(0);
+    assert!(head.is_some());
+
+    let head = head.unwrap();
+    assert_eq!(head.title, "title1");
+    assert_eq!(head.category_id, Some(3));
+    assert_eq!(head.author, None);
+}
+
+#[test]
+fn test_update_by_struct_flexibly() {
+    use self::schema::posts::dsl as posts;
+
+    let mut connection = get_connection();
+    let _ = insert_post_full(
+        &mut connection,
+        "title1",
+        "body1",
+        Some(1),
+        Some("john"),
+        true,
+        100,
+    );
+
+    #[derive(AsChangeset)]
+    #[diesel(table_name = crate::schema::posts)]
+    struct UpdatePostAttributes {
+        title: Option<String>,
+        body: Option<String>,
+        category_id: Option<Option<i32>>,
+        author: Option<Option<String>>,
+    }
+
+    let new_attributes = UpdatePostAttributes {
+        title: Some("new title1".to_string()),
+        body: None,
+        category_id: Some(Some(2)),
+        author: Some(Some("bob".to_string())),
+    };
+
+    let result = diesel::update(posts::posts.filter(posts::title.eq("title1")))
+        .set(&new_attributes)
+        .execute(&mut connection);
+
+    assert!(result.is_ok());
+    assert!(result.unwrap() == 1);
+
+    let results = posts::posts
+        .filter(posts::title.eq("new title1"))
+        .select(Post::as_select())
+        .load(&mut connection)
+        .expect("Error loading posts");
+
+    assert!(results.len() == 1);
+
+    let head = results.get(0);
+    assert!(head.is_some());
+
+    let head = head.unwrap();
+    assert_eq!(head.title, "new title1");
+    assert_eq!(head.body, "body1");
+    assert_eq!(head.category_id, Some(2));
+    assert_eq!(head.author, Some("bob".to_string()));
+
+    let new_attributes = UpdatePostAttributes {
+        title: None,
+        body: Some("new body1".to_string()),
+        category_id: None,
+        author: Some(None),
+    };
+
+    let result = diesel::update(posts::posts.filter(posts::title.eq("new title1")))
+        .set(&new_attributes)
+        .execute(&mut connection);
+
+    assert!(result.is_ok());
+    assert!(result.unwrap() == 1);
+
+    let results = posts::posts
+        .filter(posts::title.eq("new title1"))
+        .select(Post::as_select())
+        .load(&mut connection)
+        .expect("Error loading posts");
+
+    assert!(results.len() == 1);
+
+    let head = results.get(0);
+    assert!(head.is_some());
+
+    let head = head.unwrap();
+    assert_eq!(head.title, "new title1");
+    assert_eq!(head.body, "new body1");
+    assert_eq!(head.category_id, Some(2));
+    assert_eq!(head.author, None);
+}

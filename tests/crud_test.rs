@@ -131,6 +131,35 @@ fn test_select_specified_columns() {
 }
 
 #[test]
+fn test_select_with_subquery() {
+    use self::schema::posts::dsl as posts;
+
+    let mut connection = get_connection();
+    let _ = insert_post_simple(&mut connection, "title1", "body1", true);
+
+    let subquery = posts::posts
+        .select(posts::id)
+        .filter(posts::title.eq("title1"))
+        .into_boxed();
+
+    let query = posts::posts
+        .select((posts::title, posts::body))
+        .filter(posts::id.eq_any(subquery));
+
+    println!("Debug query: {:?}", debug_query::<Sqlite, _>(&query));
+
+    let results = query
+        .load::<(String, String)>(&mut connection)
+        .expect("Error loading posts");
+
+    assert!(results.len() == 1);
+
+    let head = results.get(0).unwrap();
+    assert!(head.0 == "title1");
+    assert!(head.1 == "body1");
+}
+
+#[test]
 fn test_select_into_struct() {
     use self::schema::posts::dsl as posts;
 
